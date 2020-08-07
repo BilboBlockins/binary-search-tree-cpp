@@ -1,0 +1,526 @@
+/*
+Brett Hiebert
+BinaryTree.tem
+BinaryTree Template Implementation
+Data Members: BinaryTree as a BinNode pointer "root" and a std::size_t "treeSize" member for keeping track of the total tree size.
+9/25/2018
+*/
+
+//DEFAULT CONSTRUCTOR
+//Precondition: Item is a data type with <>= operators defined.
+//Postcondition:
+//BinaryTree has been created, the BinNode root member has been initialized to nullptr, and treeSize has been set to zero. 
+template <class Item>
+BinaryTree<Item>::BinaryTree() 
+{ 
+	root = nullptr; 
+	treeSize = 0; 
+}
+
+//COPY CONSTRUCTOR
+//Precondition: Item is a data type with <>= operators defined, and source is a Binary tree with the same datatype as the new tree.
+//Postcondition:
+//BinaryTree has been created and all the BinNodes and data in source has been copied. TreeSize is set to the size of the source.
+template <class Item>
+BinaryTree<Item>::BinaryTree(const BinaryTree& source)
+{
+	root = _copyTree(source.root); // point the root to a copy of the source.
+	treeSize = source.treeSize; // set the treeSize to the size of the source.
+}
+
+//ASSIGNMENT OVERLOAD
+//Precondition: Source does not have the same address as the assigned tree and source is a Binary tree with the same datatype as the new tree.
+//Postcondition:
+//All of the data in the current tree has been freed. A deep copy of the source data has been created and attached to the current root
+//TreeSize is set to the size of the source.
+template <class Item>
+void BinaryTree<Item>::operator =(const BinaryTree& source)
+{
+	if(this == &source) // check for self assignment.
+		return *this;
+
+	_freeAllBinNodes(root); //Free all of the curent tree's memory.
+
+	root = _copyTree(source.root); //Deep copy the source data.
+	treeSize = source.treeSize; //Set treeSize to the same as the source.
+}
+
+//DESTRUCTOR
+//Postcondition:
+//All of the BinaryTree Nodes have been detroyed, root is reset to nullptr, and the treeSize is reset to zero;
+template <class Item>
+BinaryTree<Item>::~BinaryTree() 
+{ 
+	_freeAllBinNodes(root); 
+	root = nullptr; 
+} 
+
+//PRINTALL FUNCTION
+//Postcondition:
+//All data in the BinaryTree has been printed in a list, in-order, along with the item number and the tree depth it occurs at.
+template <class Item>
+void BinaryTree<Item>::printAll() 
+{ 
+	int counter = 0; // create a local variable for the counter
+	_print(root, counter);  //calls recusive print function (depth is also tracked but is set as default arg)
+}
+
+//PRINTASTREE FUNCTION
+//Postcondition:
+//All data in the BinaryTree has been printed as a 2d tree along with the correct tree depth and link info showing the children of each node.
+template <class Item>
+void BinaryTree<Item>::printAsTree(const int DATA_SPACING_IN) 
+{
+	_printAsTree(root, DATA_SPACING_IN); // calls recusive tree print function - DATA_SPACING is the width req. to properly show data in tree (default is 15 spaces)
+}
+
+//ADD FUNCTION
+//Precondition: Entry is the same data type as the tree with the <>= data operators defined.
+//Postcondition:
+//New BinNode has been created and added into the BinaryTree in the appropriate location.
+template <class Item>
+void BinaryTree<Item>::add(const Item& entry) //const Item&
+{
+	BinNode<Item>* cursor = root;
+	BinNode<Item>* allocNode = _allocBinNode(entry); // creates a new node with the entry data
+
+	if (root == nullptr) // if the tree is empty
+	{
+		root = allocNode; // root is the new node
+		treeSize++; // increment tree size
+		return;
+	}
+
+	while (cursor != nullptr) //until we reach the end of the tree
+	{
+		if (entry <= cursor->data)    // If the entry is smaller or the same as the current node.
+		{
+			if (cursor->left == nullptr) // Check if the left is empty
+			{
+				cursor->left = allocNode; // assign the new node to the left
+				treeSize++; // increment the tree size
+				cursor = nullptr; // local pointer to null
+			}
+			else
+			{
+				cursor = cursor->left; // move the cursor left
+			}
+		}
+		else                        // right > (goes to the right)
+		{
+			if (cursor->right == nullptr) // Check if the right is empty
+			{
+				cursor->right = allocNode; // assign the node to the right
+				treeSize++; // increment the treeSize
+				cursor = nullptr; // local pointer to null
+			}
+			else
+				cursor = cursor->right; // keep going right
+		}
+	}
+}
+
+//REMOVE FUNCTION
+//Precondition: target is an item that matches an item in the tree
+//Postcondition:
+//A single node matching the target item has been removed from the tree and the remaining data in the tree still follows all of the rules for a BinaryTree. 
+template <class Item>
+bool BinaryTree<Item>::remove(const Item& target)
+{
+	if(_treeRemove(root, target, root)) // if the item is removed - call to recursive helper function.
+	{
+		std::cout << "Item removed from tree"<< std::endl; // print success message
+		return true;
+	}
+	else // item was not found or removed
+	{
+		std::cout << "Item to remove not found"<< std::endl; // print error message
+		return false;
+	}
+}
+
+//CLEAR FUNCTION
+//Postcondition:
+//All the nodes in the current tree have been destroyed and the root has been set to nullptr.
+template<class Item>
+void BinaryTree<Item>::clear()
+{
+	_freeAllBinNodes(root); // destroys all memory on the heap, and sets treeSize back to zero.
+	root = nullptr; 
+}
+
+//INORDERTRAVERSE FUNCTION - PUBLIC
+//Precondition: Process is a void function passed to the traverse with a structure of process(data, count, depth), and the same data type as the tree.
+//Postcondition:
+//Process has been applied to every node in the tree in-order (smallest node to biggest)
+template<class Item>
+void BinaryTree<Item>::inOrderTraverse(void process(Item&, int, int))
+{
+	int counter = 0; //need a var for the pass by ref counter.
+	_inOrderTraverse(process, root, counter); //Note: Process structure is process(data, count, depth), depth is tracked in the recusive function.
+}
+
+//READFILE FUNCTION
+//Precondition: The fileName file is an existing file with data fields separated by white space
+//Postcondition:
+//The entire contents of the file has been read and a new BinNode has been added correctly to the BinaryTree for each data field in the file
+template <class Item>
+void BinaryTree<Item>::readFile(std::string fileName)
+{
+	std::ifstream inf;
+	Item data;
+
+	inf.open(fileName); // open file
+
+	if(inf.fail()) // if file did not work
+	{
+		std::cout << "Error opening input file." << std::endl;
+		exit(1); // exit
+	}
+
+	if(!(inf >> data)) // check for any data in the file
+	{
+		std::cout << "Error - File is empty." << std::endl;
+		return;
+	} 
+
+	while(!(inf.eof())) //while not at the end of the file
+	{
+		add(data); //add the new item in the tree
+		inf >> data; // go to the next entry
+	} 
+
+	inf.close(); // close the file
+}
+
+//WRITEFILE FUNCTION
+//Postcondition:
+//The entire contents of the BinaryTree has been written to the fileName file and separated into fields with the delimiter.
+template <class Item>
+void BinaryTree<Item>::writeFile(std::string fileName, std::string delim)
+{
+	std::ofstream outf; // out file stream variable
+
+	outf.open(fileName); // open or create the file (will wipe existing file)
+
+	if(outf.fail()) // If the file doesn't open
+	{
+		std::cout << "Error opening output file." << std::endl; // error message
+		exit(1); // terminate program
+	}
+
+	_writeFile(root, outf, delim); // call recusive helper function to copy data
+
+	outf.close(); // close the file
+}
+
+
+//PRIVATE HELPER FUNCTIONS
+//===================================================================================================
+
+//COPYTREE HELPER FUNCTION
+//Precondition: RootIn is the root BinNode of the tree you are copying
+//Postcondition:
+//A complete copy of the source tree has been created on the heap. The returned BinNode is the root node of that copy.
+template <class Item>
+BinNode<Item>* BinaryTree<Item>::_copyTree(const BinNode<Item>* rootIn)
+{
+	BinNode<Item>* leftPtr; // local pointer for left and right assignment
+	BinNode<Item>* rightPtr;
+
+	if(rootIn == nullptr) // if the source tree is empty
+		return nullptr;
+	else
+	{
+		leftPtr = _copyTree( rootIn->left ); // Assign pointers to the next nodes - Note: Post-Order traverse.
+		rightPtr = _copyTree( rootIn->right ); 
+		return new BinNode<Item>(rootIn->data, leftPtr, rightPtr); // create a new node with the left and right pointers assigned
+	}
+}
+
+//ALLOCBINNODE HELPER FUNCTION
+//Precondition: Entry is an item that matches the data type of the BinaryTree
+//Postcondition:
+//A new BinNode with the entry in the data field has been created on the heap.
+template <class Item>
+BinNode<Item>* BinaryTree<Item>::_allocBinNode(Item entry)
+{
+	BinNode<Item>* newNode = new BinNode<Item>(entry); //creates a new node on the heap the entry in the data field
+	return newNode;
+}
+
+//FREEALLBINNODES FUNCTION
+//Precondition: RootIn is the root BinNode of the tree you are destroying from the heap
+//Postcondition:
+//All of the nodes in the BinaryTree have been removed from the heap. The root node has been set back to nullptr
+template <class Item>
+void BinaryTree<Item>::_freeAllBinNodes(BinNode<Item>* rootIn)
+{
+	BinNode<Item>* child; //local child pointer
+
+	if (rootIn != nullptr)  // Post-Order Traverse - stopping case
+	{	
+		child = rootIn->left;
+		_freeAllBinNodes(child); // free all in left
+		child = rootIn->right;
+		_freeAllBinNodes(child); // free all in right
+		delete rootIn; // delete the root
+		rootIn = nullptr; // set the root back to null
+		treeSize = 0; // reset the tree size
+	}
+}
+
+//TREEREMOVEMAX HELPER FUNCTION
+//Precondition: RootIn is the BinNode in the tree you would like to remove, parentIn is rootIn's parent node. Removed is a reference to the data in the current node.
+//Postcondition:
+//The current nodes value has been replaced with the max value from the current nodes left subtree. The duplicate value in the left subtree has been removed.
+template <class Item>
+void BinaryTree<Item>::_treeRemoveMax(BinNode<Item>*& rootIn, Item& removed, BinNode<Item>*& parentIn)
+{
+	BinNode<Item>* cursor = rootIn;
+	BinNode<Item>* cursorParent = parentIn;
+
+	removed = _findMax(cursor); // Set removed (copies data into current node) to the max value in the left subtree.
+
+	_treeRemove(cursor, removed, cursorParent); //Call the remove function again at the end of the tree to remove the duplicate (will be removed with 1st or 2nd case)
+}
+
+//TREEREMOVE HELPER FUNCTION
+//Precondition: RootIn is the position in the tree you would like to search from and parentIn is rootIn's parent node. Target is the data value of the node that you would like to remove.
+//Postcondition:
+//A BinNode containing the target data has been removed correctly from the BinaryTree
+template <class Item>
+bool BinaryTree<Item>::_treeRemove(BinNode<Item>*& rootIn, const Item& target, BinNode<Item>*& parentIn)
+{
+	BinNode<Item>* cursor = rootIn;
+	BinNode<Item>* cursorParent = parentIn;
+
+	//RECURSIVELY SEARCH THE TREE FOR THE ITEM TO REMOVE - CAN'T USE FIND HERE BECAUSE WE ALSO NEED TO TRACK THE PARENT NODE
+	if(rootIn == nullptr)
+	{
+		return false;
+	}
+
+	if( target < cursor->data ) //if smaller
+	{
+		return _treeRemove( cursor->left, target, cursor); //go left
+	}
+
+	if ( target > cursor->data ) // if bigger
+	{
+		return _treeRemove( cursor->right, target, cursor); // go right
+	}
+
+	if ( target == cursor->data ) //if match is found
+	{
+		//CHECK SPECIAL CASE: WE ARE TRYING TO REMOVE THE ROOT
+		if(cursor == cursorParent)
+		{
+			if(cursor->left == nullptr) // if there is no left ptr
+			{
+				cursor = cursor->right; // if there is no right too, this sets root back to nullptr
+				root = cursor; //reset the root
+				delete cursorParent; // delete the previous root
+				treeSize--; // decrement the tree
+				return true; 
+			}
+
+			else if (cursor->left != nullptr) // if there is a left tree
+			{
+				_treeRemoveMax(cursor->left, cursor->data, cursor); // Find the max value in the left tree, copy the max into the current node and then remove duplicate.
+				return true;
+			}
+		}
+
+		//FIRST CASE: ITEM TO REMOVE IS A LEAF
+		if(cursor->left == nullptr && cursor->right == nullptr) // if the node to delete is is a leaf
+
+		{
+			if(cursor->data > cursorParent->data) // if this node is to the right of the parent
+			{
+				delete cursor;
+				cursorParent->right = nullptr; //reset the parent's right pointer to nullptr
+				treeSize--; // decrement
+				return true;
+			}
+			else //if the node is to the left of the parent
+			{
+				delete cursor;
+				cursorParent->left = nullptr; //resets the parent;s left pointer to nullptr
+				treeSize--; // decrement
+				return true;
+			}
+		}
+
+		//SECOND CASE: RIGHT CHILD BUT NO LEFT CHILD
+		if(cursor->left == nullptr && cursor->right != nullptr) // only larger nodes to the right (no left)
+		{
+			if(cursor->data > cursorParent->data) // if node is to the right of the parent
+			{
+				cursorParent->right = cursor->right; // relink the right over the removed node
+				delete cursor;
+				treeSize--;
+				return true;
+			}
+			else // if the node is to the left of the parent
+			{
+				cursorParent->left = cursor->right; // relink the left over the removed node
+				delete cursor;
+				treeSize--;
+				return true;
+			}
+		}
+
+		//THIRD CASE: BOTH CHIDLREN - PULL UP THE MAX VALUE FROM THE LEFT SUBTREE
+		if(cursor->left != nullptr)
+		{
+			_treeRemoveMax(cursor->left, cursor->data, cursor);
+			return true;
+		}
+	}
+	return false; // if nothing is found
+}
+
+//PRINT HELPER FUNCTION
+//Precondition: RootIn is the root node of the tree you are printing
+//Postcondition:
+//All data in the BinaryTree has been printed in a list, in-order, along with the item number and the tree depth it occurs at.
+template <class Item>
+void BinaryTree<Item>::_print(BinNode<Item>* rootIn, int& count, int depth) //could replace this with different traversals
+{
+	if (rootIn != nullptr)  //stopping case
+	{
+		_print(rootIn->left, count, depth+1); // In Order Traverse - smallest to biggest - call left while incrementing depth
+		std::cout << count << ". " << "d" << depth << ": " << rootIn->data << std::endl; // print current number, current tree depth, and data.
+		count++; // increment counter
+		_print(rootIn->right, count, depth+1); //call right while incrementing depth
+	}
+}
+
+//PRINTASTREE HELPER FUNCTION
+//Precondition: RootIn is the root node of the tree you are printing
+//All data in the BinaryTree has been printed as a 2d tree along with the correct tree depth and link info showing the children of each node.
+template <class Item>
+void BinaryTree<Item>::_printAsTree(BinNode<Item>* rootIn, const int DATA_SPACING, int space, int depth) //could replace this with different traversals
+{
+	std::string end = "[leaf]"; //var for end tag printed in tree (will be modified if not a leaf)
+
+	if (rootIn != nullptr)
+	{
+		space += DATA_SPACING; // increment the data space
+		
+		_printAsTree(rootIn->right, DATA_SPACING, space, depth+1); // call the right tree - prints out backward-in-order for 2d effect
+
+		std::cout << "\n";
+
+		if(rootIn->right != nullptr && rootIn->left != nullptr) // if there are 2 children
+		{
+			end = " -<";
+		}
+		else if(rootIn->right != nullptr && rootIn->left == nullptr) // if right child only
+		{
+			end = " -ro/";
+		}
+		else if(rootIn->right == nullptr && rootIn->left != nullptr) // if left child only
+		{
+			end = " -lo\\";
+		}
+
+		for(int i = 15; i<space; i++) // starting from 0, print data space for each iteration in the tree
+			std::cout << " ";
+
+		std::cout <<"d"<< depth << ": "<< rootIn->data << end; // print the data with the current depth and the end tag after the spaces
+
+		_printAsTree(rootIn->left, DATA_SPACING, space, depth+1); // call the right tree
+	}
+}
+
+//FIND HELPER FUNCTION - Note: Not Used - only for class completeness
+//Precondition: RootIn is the root node of the tree you are looking in. Target is the data field in the node you want to find.
+//Postcondition:
+//BinNode pointer pointer at the correct node containing the target data has been returned. If the target is not found, nullptr is returned.
+template <class Item>
+BinNode<Item>* BinaryTree<Item>::_find( BinNode<Item>* rootIn, Item target)
+{
+	BinNode<Item>* cursor = rootIn;
+
+	if(rootIn == nullptr) // stopping case
+	{
+		return nullptr;
+	}
+
+	if( target < cursor->data ) // if smaller
+	{
+		return _find(cursor->left, target); // go left
+	}
+
+	if ( target > cursor->data )
+	{
+		return _find(cursor->right, target); // if bigger
+	}
+
+	if ( target == cursor->data ) // go right
+	{
+		return cursor; // if item is found
+	}
+	return nullptr; // if nothing is found
+}
+
+//FINDMIN HELPER FUNCTION
+//Precondition: RootIn is the root node of the tree or subtree you are looking in.
+//Postcondition:
+//The smallest item in the tree has been returned.
+template <class Item>
+Item BinaryTree<Item>::_findMin(const BinNode<Item>* rootIn)
+{
+	if(rootIn->left != nullptr) // until we find the smallest item
+		return _findMin(rootIn->left); // go left
+	else
+		return rootIn->data; // at the end of the tree, return the min value
+}
+
+//FINDMAX HELPER FUNCTION
+//Precondition: RootIn is the root node of the tree or subtree you are looking in.
+//Postcondition:
+//The largest item in the tree has been returned.
+template <class Item>
+Item BinaryTree<Item>::_findMax(const BinNode<Item>* rootIn)
+{
+	if(rootIn->right != nullptr) // until we find the largest item
+		return _findMax(rootIn->right); // go right
+	else
+		return rootIn->data; // at the end of the tree, return the max value
+}
+
+//WRITEFILE HELPER FUNCTION
+//Precondition: RootIn is the root node of the tree you are writing to file. Delim is the separator between data fields
+//Postcondition:
+//All the data in the BinaryTree has been written to the file referenced by the fileStream and separated by the delimiter.
+template <class Item>
+void BinaryTree<Item>::_writeFile(BinNode<Item>* rootIn, std::ofstream& fileStream, std::string delim)
+{
+	if(rootIn != nullptr) //stopping case
+	{
+		fileStream << rootIn->data; // insert data - Note: Pre-Order traversal
+		fileStream << delim; //insert delimiter
+
+		_writeFile(rootIn->left, fileStream, delim); //go left
+		_writeFile(rootIn->right, fileStream, delim); // go right
+	}
+}
+
+//INORDERTRAVERSE PRIVATE HELPER FUNCTION
+//Precondition: Process is a void function passed to the traverse with a structure of process(data, count, depth), and the same data type as the tree.
+//Postcondition:
+//Process has been applied to every node in the tree in-order (smallest node to biggest)
+template<class Item>
+void BinaryTree<Item>::_inOrderTraverse(void process(Item&,int,int), BinNode<Item> *rootPtr, int & counter, int depth)
+{
+	if (rootPtr != nullptr) // stopping case
+	{
+		_inOrderTraverse(process, rootPtr->left, counter, depth+1); // go left and increment the tree depth
+		process(rootPtr->data, counter, depth); //call the process function - Note (the process does not change the counter)
+		counter++; // increment the counter
+		_inOrderTraverse(process, rootPtr->right, counter, depth+1); // go right and increment the tree depth
+	}
+}

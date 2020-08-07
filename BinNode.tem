@@ -1,0 +1,25 @@
+/*
+Brett Hiebert
+BinNode.tem
+BinNode Template Implementation
+Data Members: BinNode has a "data" datafield and a "left" and "right" BinNode pointer to point to its children.
+9/25/2018
+*/
+
+//DEFAULT CONSTRUCTOR
+//Postcondition: BinNode as been created and initialized with any data passed as args, or the defaults.
+template <class Item>
+BinNode<Item>::BinNode(const Item& initData, BinNode* initLeft, BinNode* initRight)
+{
+	data = initData;
+	left = initLeft;
+	right = initRight;
+}
+
+//ISLEAF FUNCTION
+//Postcondition: If the BinNode is a leaf, true is returned, else, false is returned.
+template<class Item>
+bool BinNode<Item>::isLeaf() const
+{
+	return (left == nullptr) && (right == nullptr);
+}
